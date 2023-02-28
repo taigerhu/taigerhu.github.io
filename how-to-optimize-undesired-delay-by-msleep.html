@@ -1,0 +1,125 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>内核msleep()耗时过多优化 | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">内核msleep()耗时过多优化</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">内核msleep()耗时过多优化</h1><div class="post-meta">2018-04-10</div><div class="post-content"><p>高通低端平台启动时间发现有个地方耗时达2.5s，Linux内核版本3.18，具体是msm camera driver里使用了如下code:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="keyword">for</span>(i=<span class="number">0</span>;i&lt;<span class="number">128</span>;i++)</span><br><span class="line">&#123;</span><br><span class="line">   do_something();</span><br><span class="line">   msleep(delay);</span><br><span class="line">   do_something();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>增加log，delay是1ms，从log看实际延时多达20ms，整个循环下来达2.5s，如何达到预期的延时呢。</p>
+<p>来看下内核文档Documentation&#x2F;timers&#x2F;timers-howto.txt关于延时的描述:</p>
+<blockquote>
+<p>ATOMIC CONTEXT:<br>       You must use the *delay family of functions. These<br>       functions use the jiffie estimation of clock speed<br>       and will busy wait for enough loop cycles to achieve<br>       the desired delay:</p>
+<pre><code>   ndelay(unsigned long nsecs)
+   udelay(unsigned long usecs)
+   mdelay(unsigned long msecs)
+
+   udelay is the generally preferred API; ndelay-level
+   precision may not actually exist on many non-PC devices.
+
+   mdelay is macro wrapper around udelay, to account for 
+   possible overflow when passing large arguments to udelay.
+   In general, use of mdelay is discouraged and code should
+   be refactored to allow for the use of msleep.
+</code></pre>
+</blockquote>
+<p>原子操作内延时必须用*delay系列忙等函数，我们来看下udelay的实现include&#x2F;asm-generic&#x2F;delay.h：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> udelay(n)                                                       \</span></span><br><span class="line"><span class="meta">        (&#123;                                                              \</span></span><br><span class="line"><span class="meta">                <span class="keyword">if</span> (__builtin_constant_p(n)) &#123;                          \</span></span><br><span class="line"><span class="meta">                        <span class="keyword">if</span> ((n) / 20000 &gt;= 1)                           \</span></span><br><span class="line"><span class="meta">                                 __bad_udelay();                        \</span></span><br><span class="line"><span class="meta">                        <span class="keyword">else</span>                                            \</span></span><br><span class="line"><span class="meta">                                __const_udelay((n) * 0x10c7ul);         \</span></span><br><span class="line"><span class="meta">                &#125; <span class="keyword">else</span> &#123;                                                \</span></span><br><span class="line"><span class="meta">                        __udelay(n);                                    \</span></span><br><span class="line"><span class="meta">                &#125;                                                       \</span></span><br><span class="line"><span class="meta">        &#125;)</span></span><br></pre></td></tr></table></figure>
+
+<p><code>__bad_udelay()</code>范围出错，<code>__udelay()</code>和<code>__const_udelay()</code>都依赖于硬件架构，比如ARM在arch&#x2F;arm&#x2F;include&#x2F;asm&#x2F;delay.h:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> __udelay(n)             arm_delay_ops.udelay(n)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> __const_udelay(n)       arm_delay_ops.const_udelay(n)</span></span><br></pre></td></tr></table></figure>
+
+<p>最后会call:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">if</span> __LINUX_ARM_ARCH__ == 6 || defined(CONFIG_ARM_ERRATA_754327)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> cpu_relax()                     smp_mb()</span></span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> cpu_relax()                     barrier()</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">void</span> __timer_delay(<span class="type">unsigned</span> <span class="type">long</span> cycles)</span><br><span class="line">&#123;</span><br><span class="line">        <span class="type">cycles_t</span> start = get_cycles();</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> ((get_cycles() - start) &lt; cycles)</span><br><span class="line">                cpu_relax();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>barrier()</code>是啥，内核文档Documentation&#x2F;memory-barriers.txt说明：</p>
+<blockquote>
+<h1 id="x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-WHAT-ARE-MEMORY-BARRIERS"><a href="#x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-x3D-WHAT-ARE-MEMORY-BARRIERS" class="headerlink" title="&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;WHAT ARE MEMORY BARRIERS?"></a>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;<br>WHAT ARE MEMORY BARRIERS?</h1><p>As can be seen above, independent memory operations are effectively performed<br>in random order, but this can be a problem for CPU-CPU interaction and for I&#x2F;O.<br>What is required is some way of intervening to instruct the compiler and the<br>CPU to restrict the order.</p>
+<p>Memory barriers are such interventions.  They impose a perceived partial<br>ordering over the memory operations on either side of the barrier.</p>
+<p>Such enforcement is important because the CPUs and other devices in a system<br>can use a variety of tricks to improve performance, including reordering,<br>deferral and combination of memory operations; speculative loads; speculative<br>branch prediction and various types of caching.  Memory barriers are used to<br>override or suppress these tricks, allowing the code to sanely control the<br>interaction of multiple CPUs and&#x2F;or devices.</p>
+</blockquote>
+<p>barrier就是强制memory operations的唯一有序性，rt? 具体以后再看。</p>
+<blockquote>
+<p>NON-ATOMIC CONTEXT:<br>       You should use the *sleep[_range] family of functions.<br>       There are a few more options here, while any of them may<br>       work correctly, using the “right” sleep function will<br>       help the scheduler, power management, and just make your<br>       driver better :)</p>
+<pre><code>   -- Backed by busy-wait loop:
+           udelay(unsigned long usecs)
+   -- Backed by hrtimers:
+           usleep_range(unsigned long min, unsigned long max)
+   -- Backed by jiffies / legacy_timers
+           msleep(unsigned long msecs)
+           msleep_interruptible(unsigned long msecs)
+
+   Unlike the *delay family, the underlying mechanism
+   driving each of these calls varies, thus there are 
+   quirks you should be aware of. 
+</code></pre>
+</blockquote>
+<p>非原子操作内使用*sleep[_range]函数，用的不好就会带来性能问题，具体是注意一些quirks，来看看是哪些：</p>
+<blockquote>
+<pre><code>   SLEEPING FOR &quot;A FEW&quot; USECS ( &lt; ~10us? ):
+           * Use udelay
+
+           - Why not usleep?
+                   On slower systems, (embedded, OR perhaps a speed-
+                   stepped PC!) the overhead of setting up the hrtimers
+                   for usleep *may* not be worth it. Such an evaluation
+                   will obviously depend on your specific situation, but
+                   it is something to be aware of.
+</code></pre>
+</blockquote>
+<p>&lt; ~10us的也用udelay，不用hrtimers实现的usleep担心开销太大。what is hrtimers? see Documentation&#x2F;timers&#x2F;hrtimers.txt:</p>
+<blockquote>
+<p>subsystem for high-resolution kernel timers</p>
+</blockquote>
+<p>高精定时器，肯定准哈。</p>
+<blockquote>
+<pre><code>   SLEEPING FOR ~USECS OR SMALL MSECS ( 10us - 20ms):
+           * Use usleep_range
+
+           - Why not msleep for (1ms - 20ms)?
+                   Explained originally here:
+                           http://lkml.org/lkml/2007/8/3/250
+                   msleep(1~20) may not do what the caller intends, and
+                   will often sleep longer (~20 ms actual sleep for any
+                   value given in the 1~20ms range). In many cases this
+                   is not the desired behavior.
+
+           - Why is there no &quot;usleep&quot; / What is a good range?
+                   Since usleep_range is built on top of hrtimers, the
+                   wakeup will be very precise (ish), thus a simple
+                   usleep function would likely introduce a large number
+                   of undesired interrupts.
+
+                   With the introduction of a range, the scheduler is
+                   free to coalesce your wakeup with any other wakeup
+                   that may have happened for other reasons, or at the
+                   worst case, fire an interrupt for your upper bound.
+
+                   The larger a range you supply, the greater a chance
+                   that you will not trigger an interrupt; this should
+                   be balanced with what is an acceptable upper bound on
+                   delay / performance for your specific code path. Exact
+                   tolerances here are very situation specific, thus it
+                   is left to the caller to determine a reasonable range.
+</code></pre>
+</blockquote>
+<p>对10us - 20ms的使用usleep_range，那我们这里是delay 1ms，不应该使用msleep，原因上面说的很清楚了就是会sleep longer，应该用usleep_range，为啥要加range？没有range会带来很多中断？具体range和你的caller有关。</p>
+<blockquote>
+<pre><code>   SLEEPING FOR LARGER MSECS ( 10ms+ )
+           * Use msleep or possibly msleep_interruptible
+
+           - What&#39;s the difference?
+                   msleep sets the current task to TASK_UNINTERRUPTIBLE
+                   whereas msleep_interruptible sets the current task to
+                   TASK_INTERRUPTIBLE before scheduling the sleep. In
+                   short, the difference is whether the sleep can be ended
+                   early by a signal. In general, just use msleep unless
+                   you know you have a need for the interruptible variant
+</code></pre>
+</blockquote>
+<p>对应延时10ms+的使用msleep or msleep_interruptible。</p>
+<p>那这里的range写多少了，我想这个问题内核drv肯定也有人遇到过，果然这个<a target="_blank" rel="noopener" href="https://lkml.org/lkml/2016/11/29/54">patch</a>就是优化这类耗时：</p>
+<figure class="highlight patch"><table><tr><td class="code"><pre><span class="line">Date	Tue, 29 Nov 2016 07:51:55 +0100</span><br><span class="line">From	Vojtech Pavlik &lt;&gt;</span><br><span class="line">Subject	Re: [PATCH] Input: joystick: gf2k - change msleep to usleep_range for small msecs</span><br><span class="line">	</span><br><span class="line"></span><br><span class="line">    share 0</span><br><span class="line">    share 0</span><br><span class="line"></span><br><span class="line">On Tue, Nov 29, 2016 at 01:11:49AM +0530, Aniroop Mathur wrote:</span><br><span class="line"></span><br><span class="line">&gt; msleep(1~20) may not do what the caller intends, and will often sleep longer.</span><br><span class="line">&gt; (~20 ms actual sleep for any value given in the 1~20ms range)</span><br><span class="line">&gt; This is not the desired behaviour for many cases like device resume time,</span><br><span class="line">&gt; device suspend time, device enable time, connection time, probe time,</span><br><span class="line">&gt; loops, retry logic, etc</span><br><span class="line">&gt; msleep is built on jiffies / legacy timers which are not precise whereas</span><br><span class="line">&gt; usleep_range is build on top of hrtimers so the wakeups are precise.</span><br><span class="line">&gt; Thus, change msleep to usleep_range for precise wakeups.</span><br><span class="line">&gt; </span><br><span class="line">&gt; For example:</span><br><span class="line">&gt; On a machine with tick rate / HZ as 100, msleep(4) will make the process to</span><br><span class="line">&gt; sleep for a minimum period of 10 ms whereas usleep_range(4000, 4100) will make</span><br><span class="line">&gt; sure that the process does not sleep for more than 4100 us or 4.1ms</span><br><span class="line"></span><br><span class="line">And once more, patch not needed.</span><br><span class="line"></span><br><span class="line">&gt; </span><br><span class="line">&gt; Signed-off-by: Aniroop Mathur &lt;a.mathur@samsung.com&gt;</span><br><span class="line">&gt; ---</span><br><span class="line">&gt;  drivers/input/joystick/gf2k.c | 8 ++++----</span><br><span class="line">&gt;  1 file changed, 4 insertions(+), 4 deletions(-)</span><br><span class="line">&gt; </span><br><span class="line">&gt; diff --git a/drivers/input/joystick/gf2k.c b/drivers/input/joystick/gf2k.c</span><br></pre></td></tr></table></figure>
+<p><code>msleep(delay)</code>改成<code>usleep_range(delay*1000, delay*1000 + 100)</code>，试了下，果然精确延时，节省了2.5s：]</p>
+</div><div class="post-copyright"><script type="text/javascript" src="/js/copyright.js?v=1.0.0" successtext="复制成功！"></script><link rel="stylesheet" type="text/css" href="/css/copyright.css?v=1.0.0"><p><span>版权声明：</span>本站所有文章均采用 <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/cn/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0 CN</a> 许可协议。转载请注明原文链接！</p></div><br><div class="tags"><a href="/tags/msleep"><i class="fa fa-tag">msleep</i></a></div><div class="post-nav"><a class="pre" href="/how-to-fix-merge-conflict-on-gerrit.html">Git: 如何修复gerrit merge conflict状态</a><a class="next" href="/how-to-get-volume-key-pressed.html">内核如何获取音量键按下的状态</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/kworker-sched-la-stat.html">kworker 调度延迟性能测试和统计</a></li><li class="post-list-item"><a class="post-list-link" href="/implement-erofs-fragment-dedupe.html">转：EROFS 碎片去重实践</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-enable-kasan-in-ubuntu-18-04-for-x86_64.html">How to enable KASAN in Ubuntu 18.04 for X86_64</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-analyze-segmentation-fault-for-non-install-package-in-ubuntu.html">如何分析 Linux user space's segmentation fault</a></li><li class="post-list-item"><a class="post-list-link" href="/prepare-fragment-dedupe-in-erofs.html">EROFS 碎片去重准备</a></li><li class="post-list-item"><a class="post-list-link" href="/good-naming-in-programming.html">优秀代码命名法</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-compressed-data-deduplication.html">EROFS 压缩去重分析</a></li><li class="post-list-item"><a class="post-list-link" href="/analyze-fscache-cookie-code.html">转：浅析 Linux FS-Cache</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-let-bluetooth-work-under-armbian-kodi-for-rockpi4b-within-metal-case.html">Rockpi4b Armbian Kodi 终于能使用蓝牙了</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-ztailpacking-explain.html">转：EROFS ztailpacking 特性实现详解</a></li></ul></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/arm/">ARM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/dd/">Device Driver</a><span class="category-list-count">16</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/fs/">File System</a><span class="category-list-count">18</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/iot/">IoT</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/msm/">MSM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/mm/">Memory Management</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/perf/">Performance</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/security/">Security</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/stab/">Stability</a><span class="category-list-count">25</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/tools/">Tools</a><span class="category-list-count">17</span></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2023 <a href="/." rel="nofollow">TJ的技术博客.</a></div></div></div><script type="text/javascript" src="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.js"></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0"></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>

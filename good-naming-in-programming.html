@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>优秀代码命名法 | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">优秀代码命名法</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">优秀代码命名法</h1><div class="post-meta">2022-10-27</div><div class="post-content"><p>有人说过写代码就像弹棉花(^_^)，不好意思，说错了，是弹piano。我觉得写代码就像写文章，文章写出来是要给人看的(不排除自lian型)，词不达意，肯定不是好文章。能做到信达雅，那都是高高手。“金山银山就是绿水青山”，抬头看看这高度!</p>
+<p>只有好文章才能被收录(like upstream Linux kernel)，rt? 再看看老外金句：</p>
+<blockquote>
+<p>There are only two hard things in Computer Science: cache invalidation and naming things.</p>
+<p><em>Phil Karlton</em></p>
+</blockquote>
+<blockquote>
+<p>In the beginning was the Word, and the Word was with God, and the Word was God.</p>
+<p><em>The Gospel According to John</em></p>
+</blockquote>
+<p>言论：</p>
+<blockquote>
+<p>A good name paints a picture in the mind of the reader.</p>
+</blockquote>
+<blockquote>
+<p>Names are the structure we impose on the formless sea of bits that is computing.</p>
+</blockquote>
+<blockquote>
+<p>When I’m designing software, I spend a lot of time thinking about names. For me, thinking about names is inseparable from the process of design. </p>
+</blockquote>
+<p>OK，指南开始：</p>
+<p>一. 忽略那些变量类型词汇或参数类型词汇 (for static typeing)</p>
+<blockquote>
+<p>In Static Typing, type checking is performed during compile time. It means that the type of a variable is known at compile time. For some languages, the programmer must specify what type each variable is (e.g C, C++, Java)</p>
+</blockquote>
+<p>比如变量：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Bad */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">maprecorder</span> <span class="title">maprecoder</span>;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* Better */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">maprecorder</span> <span class="title">m</span>;</span></span><br></pre></td></tr></table></figure>
+
+<p>对于收集类描述，可以用复数取代单数：</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Bad */</span></span><br><span class="line"><span class="type">static</span> <span class="title function_">LIST_HEAD</span><span class="params">(fscache_volume_list)</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Better */</span></span><br><span class="line"><span class="type">static</span> <span class="title function_">LIST_HEAD</span><span class="params">(fscache_volumes)</span>;</span><br></pre></td></tr></table></figure>
+
+<p>如果关心收集的内容，命名应该反映出来，e.g.：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">erofs: clean up `enum z_erofs_collectmode&#x27;</span><br><span class="line"></span><br><span class="line">`enum z_erofs_collectmode&#x27; is really ambiguous, but I&#x27;m not quite</span><br><span class="line">sure if there are better naming, basically it&#x27;s used to judge whether</span><br><span class="line">inplace I/O can be used due to the current status of pclusters in</span><br><span class="line">the chain.</span><br><span class="line"></span><br><span class="line">Rename it as `enum z_erofs_pclustermode&#x27; instead.</span><br></pre></td></tr></table></figure>
+
+<p>函数的命名有提到：</p>
+<blockquote>
+<p> The method name doesn’t need to describe its parameters or their types—the parameter list does that for you.</p>
+</blockquote>
+<p>也要看情况，比如Kernel&#x2F;VFS:</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> (*read_folio)(<span class="keyword">struct</span> file *, <span class="keyword">struct</span> folio *);</span><br></pre></td></tr></table></figure>
+
+<p>二. 忽略那些无关或歧义词汇</p>
+<blockquote>
+<p>the name is an identifier: it points you to where it’s defined. It’s not an exhaustive catalog of everything the reader could want to know about the object.</p>
+</blockquote>
+<p>如果太短有冲突，可以增加qualifiers。</p>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="comment">/* Bad */</span></span><br><span class="line"><span class="type">void</span>	*aux_data;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* Better */</span></span><br><span class="line"><span class="type">void</span>	*aux; <span class="comment">/* auxiliary data */</span></span><br></pre></td></tr></table></figure>
+
+<p>三. 忽略那些上下文已知词汇</p>
+<ul>
+<li><p>A method or field occurs in the context of a class</p>
+</li>
+<li><p>A variable occurs in the context of a method (or function)</p>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">load_cluster_from_disk</span><span class="params">(param)</span></span><br><span class="line">&#123;</span><br><span class="line">	<span class="comment">/* Bad */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> cluster_type;</span><br><span class="line"></span><br><span class="line">	<span class="comment">/* Better */</span></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">int</span> type;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">switch</span>(type) &#123;</span><br><span class="line">		<span class="keyword">case</span> CLUSTER_TYPE_1:</span><br><span class="line">		<span class="keyword">case</span> CLUSTER_TYPE_2:</span><br><span class="line">		...</span><br><span class="line">	&#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>四. 忽略那些没有意义的词汇</p>
+<p>通常有嫌疑的：</p>
+<blockquote>
+<p>data, state, amount, value, manager, engine, object, entity, and instance</p>
+</blockquote>
+<p>多问问自己：</p>
+<blockquote>
+<p>“Would this identifier mean the same thing if I removed the word?”</p>
+</blockquote>
+<p>如果是的，那这个词就没意义。</p>
+<p>五. 只有把业务想清楚了，才能说得简单准确</p>
+<p>比如 <code>kmap_local()</code> 的出现，linus 的一段答复：</p>
+<blockquote>
+<p>On Sat, Sep 19, 2020 at 2:50 AM Thomas Gleixner &lt;<a href="mailto:&#x74;&#x67;&#x6c;&#120;&#x40;&#108;&#x69;&#x6e;&#x75;&#x74;&#x72;&#x6f;&#x6e;&#105;&#120;&#46;&#100;&#101;">&#x74;&#x67;&#x6c;&#120;&#x40;&#108;&#x69;&#x6e;&#x75;&#x74;&#x72;&#x6f;&#x6e;&#105;&#120;&#46;&#100;&#101;</a>&gt; wrote:<br>&gt;<br>&gt; this provides a preemptible variant of kmap_atomic &amp; related<br>&gt; interfaces. This is achieved by:</p>
+<p>Ack. This looks really nice, even apart from the new capability.</p>
+<p>The only thing I really reacted to is that the name doesn’t make sense<br>to me: “kmap_temporary()” seems a bit odd.</p>
+<p>Particularly for an interface that really is basically meant as a<br>better replacement of “kmap_atomic()” (but is perhaps also a better<br>replacement for “kmap()”).</p>
+<p>I think I understand how the name came about: I think the “temporary”<br>is there as a distinction from the “longterm” regular kmap(). So I<br>think it makes some sense from an internal implementation angle, but I<br>don’t think it makes a lot of sense from an interface name.</p>
+<p>I don’t know what might be a better name, but if we want to emphasize<br>that it’s thread-private and a one-off, maybe “local” would be a<br>better naming, and make it distinct from the “global” nature of the<br>old kmap() interface?</p>
+</blockquote>
+<p>我们再加上英语不是母语。。。</p>
+<p>BTW: 命名不够具体的，用象征(metaphor)代替，并保持一致。</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">/* Bad */</span><br><span class="line">received_msg_queue</span><br><span class="line"></span><br><span class="line">/* Better */</span><br><span class="line">mailbox (use address instead of destination like)</span><br></pre></td></tr></table></figure>
+
+<h2 id="Refer"><a href="#Refer" class="headerlink" title="Refer"></a>Refer</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://www.geeksforgeeks.org/type-systemsdynamic-typing-static-typing-duck-typing/">https://www.geeksforgeeks.org/type-systemsdynamic-typing-static-typing-duck-typing/</a></li>
+<li><a target="_blank" rel="noopener" href="http://journal.stuffwithstuff.com/2009/06/05/naming-things-in-code/">http://journal.stuffwithstuff.com/2009/06/05/naming-things-in-code/</a></li>
+<li><a target="_blank" rel="noopener" href="http://journal.stuffwithstuff.com/2016/06/16/long-names-are-long/">http://journal.stuffwithstuff.com/2016/06/16/long-names-are-long/</a></li>
+<li><a target="_blank" rel="noopener" href="https://lore.kernel.org/linux-mm/20200919091751.011116649@linutronix.de/">https://lore.kernel.org/linux-mm/20200919091751.011116649@linutronix.de/</a></li>
+</ul>
+</div><div class="post-copyright"><script type="text/javascript" src="/js/copyright.js?v=1.0.0" successtext="复制成功！"></script><link rel="stylesheet" type="text/css" href="/css/copyright.css?v=1.0.0"><p><span>版权声明：</span>本站所有文章均采用 <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/cn/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0 CN</a> 许可协议。转载请注明原文链接！</p></div><br><div class="tags"><a href="/tags/language"><i class="fa fa-tag">language</i></a></div><div class="post-nav"><a class="pre" href="/prepare-fragment-dedupe-in-erofs.html">EROFS 碎片去重准备</a><a class="next" href="/erofs-compressed-data-deduplication.html">EROFS 压缩去重分析</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/kworker-sched-la-stat.html">kworker 调度延迟性能测试和统计</a></li><li class="post-list-item"><a class="post-list-link" href="/implement-erofs-fragment-dedupe.html">转：EROFS 碎片去重实践</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-enable-kasan-in-ubuntu-18-04-for-x86_64.html">How to enable KASAN in Ubuntu 18.04 for X86_64</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-analyze-segmentation-fault-for-non-install-package-in-ubuntu.html">如何分析 Linux user space's segmentation fault</a></li><li class="post-list-item"><a class="post-list-link" href="/prepare-fragment-dedupe-in-erofs.html">EROFS 碎片去重准备</a></li><li class="post-list-item"><a class="post-list-link" href="/good-naming-in-programming.html">优秀代码命名法</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-compressed-data-deduplication.html">EROFS 压缩去重分析</a></li><li class="post-list-item"><a class="post-list-link" href="/analyze-fscache-cookie-code.html">转：浅析 Linux FS-Cache</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-let-bluetooth-work-under-armbian-kodi-for-rockpi4b-within-metal-case.html">Rockpi4b Armbian Kodi 终于能使用蓝牙了</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-ztailpacking-explain.html">转：EROFS ztailpacking 特性实现详解</a></li></ul></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/arm/">ARM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/dd/">Device Driver</a><span class="category-list-count">16</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/fs/">File System</a><span class="category-list-count">18</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/iot/">IoT</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/msm/">MSM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/mm/">Memory Management</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/perf/">Performance</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/security/">Security</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/stab/">Stability</a><span class="category-list-count">25</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/tools/">Tools</a><span class="category-list-count">17</span></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2023 <a href="/." rel="nofollow">TJ的技术博客.</a></div></div></div><script type="text/javascript" src="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.js"></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0"></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>

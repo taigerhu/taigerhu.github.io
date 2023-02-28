@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>kworker 调度延迟性能测试和统计 | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">kworker 调度延迟性能测试和统计</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">kworker 调度延迟性能测试和统计</h1><div class="post-meta">2023-01-31</div><div class="post-content"><p>LPC2022 EROFS 提到一个解压调度延迟问题：</p>
+<p><img src="/usr/uploads/2023/02/419606142.png#center" alt="sched-perf-in-lpc2022-erofs.png"></p>
+<p>最近，Android 提了一笔优化 patch for this issue:</p>
+<figure class="highlight patch"><table><tr><td class="code"><pre><span class="line">Author: Sandeep Dhavale &lt;dhavale@google.com&gt;</span><br><span class="line">Date:   Thu Dec 22 01:15:29 2022 +0000</span><br><span class="line"></span><br><span class="line">    EROFS: Replace erofs_unzipd workqueue with per-cpu threads</span><br><span class="line"></span><br><span class="line">    Using per-cpu thread pool we can reduce the scheduling latency compared</span><br><span class="line">    to workqueue implementation. With this patch scheduling latency and</span><br><span class="line">    variation is reduced as per-cpu threads are SCHED_FIFO kthread_workers.</span><br><span class="line"></span><br><span class="line">    The results were evaluated on arm64 Android devices running 5.10 kernel.</span><br><span class="line"></span><br><span class="line">    The table below shows resulting improvements of total scheduling latency</span><br><span class="line">    for the same app launch benchmark runs with 50 iterations. Scheduling</span><br><span class="line">    latency is the latency between when the task (workqueue kworker vs</span><br><span class="line">    kthread_worker) became eligible to run to when it actually started</span><br><span class="line">    running.</span><br><span class="line">    +-------------------------+-----------+----------------+---------+</span><br><span class="line">    |                         | workqueue | kthread_worker |  diff   |</span><br><span class="line">    +-------------------------+-----------+----------------+---------+</span><br><span class="line">    | Average (us)            |     15253 |           2914 | -80.89% |</span><br><span class="line">    | Median (us)             |     14001 |           2912 | -79.20% |</span><br><span class="line">    | Minimum (us)            |      3117 |           1027 | -67.05% |</span><br><span class="line">    | Maximum (us)            |     30170 |           3805 | -87.39% |</span><br><span class="line">    | Standard deviation (us) |      7166 |            359 |         |</span><br><span class="line">    +-------------------------+-----------+----------------+---------+</span><br><span class="line"></span><br><span class="line">    Background: Boot times and cold app launch benchmarks are very</span><br><span class="line">    important to android ecosystem as they directly translate to</span><br><span class="line">    responsiveness from user point of view. While erofs provides</span><br><span class="line">    lot of important features like space savings, we saw some</span><br><span class="line">    performance penalty in cold app launch benchmarks in few scenarios.</span><br><span class="line">    Analysis showed that the significant variance was coming from the</span><br><span class="line">    scheduling cost while decompression cost was more or less the same.</span><br></pre></td></tr></table></figure>
+
+<p>ok, 我也来过一遍测试和统计，发现问题和验证问题，你懂的，主机 ubuntu，板子 arm64, 内核4.x。</p>
+<h2 id="如何模拟-heavy-load"><a href="#如何模拟-heavy-load" class="headerlink" title="如何模拟 heavy load"></a>如何模拟 heavy load</h2><p>使用 fio 应该可以满足要求，配置如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">[global]</span><br><span class="line">time_based</span><br><span class="line">runtime=120</span><br><span class="line"></span><br><span class="line">[randread]</span><br><span class="line">ioengine=sync</span><br><span class="line">filename=/data/testing</span><br><span class="line">rw=randread</span><br><span class="line">direct=1</span><br><span class="line">size=500m</span><br><span class="line"></span><br><span class="line">[burn_8x90%_qsort]</span><br><span class="line">ioengine=cpuio</span><br><span class="line">cpuload=90</span><br><span class="line">numjobs=8</span><br><span class="line">cpumode=qsort</span><br></pre></td></tr></table></figure>
+
+<p>fio 源码按下面配置编译(for arm64)后，直接 push 到板子上运行。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">./configure --prefix=out --cc=aarch64-linux-gnu-gcc-7 --build-static</span><br></pre></td></tr></table></figure>
+
+<p><code>aarch64-linux-gnu-gcc-7</code> 如果没有，直接 <code>apt install</code>。</p>
+<p>另外，板子内核要使能 <code>CONFIG_SYSVIPC=y</code>，不然跑起来会有如下错误：</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">shmget: Function not implemented</span><br><span class="line">error: failed to setup shm segment</span><br></pre></td></tr></table></figure>
+
+<p>跑起来效果：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">XXX:/ <span class="comment"># /data/fio /data/burn-cpu.fio</span></span><br><span class="line">randread: (g=0): rw=randread, bs=(R) 4096B-4096B, (W) 4096B-4096B, (T) 4096B-4096B, ioengine=<span class="built_in">sync</span>, iodepth=1</span><br><span class="line">...</span><br><span class="line">fio-3.30</span><br><span class="line">Starting 9 processes</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br><span class="line">burn_8x90%_qsort (qsort): ioengine=cpuio, cpuload=90, cpucycle=50000</span><br></pre></td></tr></table></figure>
+
+<h2 id="复现-sched-latency-UI"><a href="#复现-sched-latency-UI" class="headerlink" title="复现 sched latency UI"></a>复现 sched latency UI</h2><p>看图估摸着应该是类似 systrace 的东西，看下 Android 官方说明：</p>
+<blockquote>
+<p>系统跟踪实用程序是一款用于将设备活动保存到跟踪文件的 Android 工具。在搭载 Android 10（API 级别 29）或更高版本的设备上，跟踪文件会以 Perfetto 格式保存，如本主题后面部分所示。在搭载较低版本 Android 系统的设备上，跟踪文件会以 Systrace 格式保存。</p>
+</blockquote>
+<p>当前环境是 11，使用 perfetto 格式。</p>
+<ul>
+<li>生成 trace 文件</li>
+</ul>
+<p>方法有命令行和 UI tools，具体可以看官方文档，这里使用 perfetto 命令(因为要连着 adb 敲 cmd)。</p>
+<p>脚本参考 <a target="_blank" rel="noopener" href="https://ui.perfetto.dev/">https://ui.perfetto.dev/</a> 下 Record new trace，只打开 CPU&#x2F;Scheduling details。</p>
+<p>step1: 先把 fio 跑起来</p>
+<p>step2: 开始录制，确保不要停下来</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">adb shell &quot;cat /data/config.pbtx | perfetto --txt -c - -o /data/misc/perfetto-traces/trace.perfetto-trace&quot;</span><br></pre></td></tr></table></figure>
+
+<p>step3: 执行一个场景操作(这里就点击系统区一个 app，比如 setting 啥的)，完成后可以按配置自动退出 or ctrl-c 强行退出</p>
+<p>step4: 取出 trace 到当前</p>
+<figure class="highlight shell"><table><tr><td class="code"><pre><span class="line">adb pull /data/misc/perfetto-traces/trace.perfetto-trace .</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>浏览 trace</li>
+</ul>
+<p>直接用 <a target="_blank" rel="noopener" href="https://ui.perfetto.dev/">https://ui.perfetto.dev/</a> 下 Open trace file 来 view，也就是一个 HTML report。</p>
+<blockquote>
+<p>Create an HTML report from the trace file using a web-based UI or from the command line.</p>
+</blockquote>
+<p>关于 cmdline 描述好像有点问题，对 perfetto trace 文件，cmdline 必须先 convert 到旧的 systrace 文件，然后再 –from-file 成 html，网络有问题的，连不上不能下载 convert工具，只能用在线。</p>
+<ul>
+<li>分析 trace</li>
+</ul>
+<p>perfetto doc&#x2F;CPU scheduling events 提到:</p>
+<blockquote>
+<p>On Android and Linux Perfetto can gather scheduler traces via the Linux Kernel ftrace infrastructure.</p>
+<p>This allows to get fine grained scheduling events such as:</p>
+<ul>
+<li>Which threads were scheduled on which CPU core at any point in time, with nanosecond accuracy.</li>
+<li>The reason why a running thread got descheduled (e.g. pre-emption, blocked on a mutex, blocking syscall or any other wait queue).</li>
+<li>The point in time when a thread became eligible to be executed, even if it was not put immediately on any CPU run queue, together with the source thread that made it executable.</li>
+</ul>
+</blockquote>
+<p>说明文档里抓了一个进程 897 的 cpu slice, 如下图：</p>
+<p><img src="https://tjtech.me/usr/uploads/2023/02/984744057.png#center" alt="latency.png"></p>
+<p>右下已经对 scheduling latency 做出描述：</p>
+<blockquote>
+<p>This is interval from when the task became eligible to run to when it started running.</p>
+</blockquote>
+<p>留意到 patch 的 commit message 最后也有这个描述，那基本就是这个了，rt?</p>
+<p>图上的 Start time 就是真正 running 的时间点，而 wakeup 时间点就是 eligible to executed，但是因某些原因没有被放入 cpu 的 running queue，doc 也提到了几个因素：</p>
+<blockquote>
+<ul>
+<li>All CPUs might be busy running some other thread, and Thread A needs to wait to get a run queue slot assigned (or the other threads have higher priority).</li>
+<li>Some other CPUs other than the current one, but the scheduler load balancer might take some time to move the thread on another CPU.</li>
+</ul>
+</blockquote>
+<p>ok, 那 897 的调度延迟就是从 wakeup 到 start time 的时间间隔，就是 10us 729ns。</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">  Start time: 6s 177ms 391us 761ns </span><br><span class="line">- Wakeup:     6s 177ms 381us  32ns</span><br><span class="line">  Scheduling latency =  10us 729ns</span><br></pre></td></tr></table></figure>
+
+<p>查了下色块的定义，好像 Blue 是 Runnable (it could run, but the scheduler hasn’t picked it to run yet).</p>
+<h2 id="内核支持-workqueue-name"><a href="#内核支持-workqueue-name" class="headerlink" title="内核支持 workqueue name"></a>内核支持 workqueue name</h2><p>我的内核只显示<code>kworker/u17:3</code>，需要一笔 patch:</p>
+<figure class="highlight patch"><table><tr><td class="code"><pre><span class="line">commit 6b59808bfe482642287ddf3fe9d4cccb10756652</span><br><span class="line">Author: Tejun Heo &lt;tj@kernel.org&gt;</span><br><span class="line">Date:   Fri May 18 08:47:13 2018 -0700</span><br><span class="line"></span><br><span class="line">    workqueue: Show the latest workqueue name in /proc/PID/&#123;comm,stat,status&#125;</span><br></pre></td></tr></table></figure>
+
+<p>还有关联的几笔，添加后的显示：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">XXX:/ <span class="comment"># ps -ef | grep kworker | grep erofs</span></span><br><span class="line">root            584      2 0 15:55:32 ?     00:00:00 [kworker/u17:4-erofs_unzipd]</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">XXX:/ <span class="comment"># cat /proc/584/status</span></span><br><span class="line">Name:   kworker/u17:4-erofs_unzipd</span><br><span class="line">Umask:  0000</span><br><span class="line">State:  I (idle)</span><br><span class="line">Tgid:   584</span><br><span class="line">Ngid:   0</span><br><span class="line">Pid:    584</span><br></pre></td></tr></table></figure>
+
+<p>ok, 再抓一次，如下图：</p>
+<p><img src="https://tjtech.me/usr/uploads/2023/02/4247524523.png#center" alt="my-latency.png"></p>
+<p>不过似乎 perfetto 不支持统计这个 latency，手动查还是累了。</p>
+<h2 id="如何统计调度延迟"><a href="#如何统计调度延迟" class="headerlink" title="如何统计调度延迟"></a>如何统计调度延迟</h2><p>kernel 下 perf 工具，可以直接统计：</p>
+<blockquote>
+<p><code>perf sched latency</code> will summarize scheduler latencies by task, including average and maximum delay:</p>
+</blockquote>
+<p>查了下安卓自带的有 simpleperf, list 虽然有 sched，record 也录了，report 愣是没找到，编一个 perf 得了。</p>
+<p>进 tools&#x2F;perf 下:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">make CROSS_COMPILE=aarch64-linux-gnu- ARCH=arm64 LDFLAGS=-static O=out</span><br></pre></td></tr></table></figure>
+
+<p>当前目录生成了 perf bin，推到板子上，还是这个好使啊。</p>
+<figure class="highlight text"><table><tr><td class="code"><pre><span class="line">kworker/u17:3-e:467           |    233.695 ms |     2185 | avg:    0.025 ms | max:    2.400 ms | max at:    795.774852 s</span><br></pre></td></tr></table></figure>
+
+<p>就这样。。。</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><p><a target="_blank" rel="noopener" href="https://source.android.com/docs/core/tests/debug/systrace">https://source.android.com/docs/core/tests/debug/systrace</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://developer.android.com/topic/performance/tracing">https://developer.android.com/topic/performance/tracing</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://perfetto.dev/docs/quickstart/android-tracing">https://perfetto.dev/docs/quickstart/android-tracing</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://developer.android.com/topic/performance/tracing/on-device">https://developer.android.com/topic/performance/tracing/on-device</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://perfetto.dev/docs/data-sources/cpu-scheduling">https://perfetto.dev/docs/data-sources/cpu-scheduling</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://devblogs.microsoft.com/performance-diagnostics/perfetto-tooling-for-analyzing-android-linux-and-chromium-browser-performance-microsoft-performance-tools-linux-android/">https://devblogs.microsoft.com/performance-diagnostics/perfetto-tooling-for-analyzing-android-linux-and-chromium-browser-performance-microsoft-performance-tools-linux-android/</a></p>
+</li>
+<li><p>Documentation&#x2F;admin-guide&#x2F;kernel-per-CPU-kthreads.rst</p>
+</li>
+<li><p>Documentation&#x2F;core-api&#x2F;workqueue.rst</p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://lwn.net/ml/linux-kernel/20180517043448.3152269-1-tj@kernel.org/">https://lwn.net/ml/linux-kernel/20180517043448.3152269-1-tj@kernel.org/</a></p>
+</li>
+</ul>
+</div><div class="post-copyright"><script type="text/javascript" src="/js/copyright.js?v=1.0.0" successtext="复制成功！"></script><link rel="stylesheet" type="text/css" href="/css/copyright.css?v=1.0.0"><p><span>版权声明：</span>本站所有文章均采用 <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/cn/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0 CN</a> 许可协议。转载请注明原文链接！</p></div><br><div class="tags"><a href="/tags/perf"><i class="fa fa-tag">perf</i></a><a href="/tags/sched"><i class="fa fa-tag">sched</i></a></div><div class="post-nav"><a class="next" href="/implement-erofs-fragment-dedupe.html">转：EROFS 碎片去重实践</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/kworker-sched-la-stat.html">kworker 调度延迟性能测试和统计</a></li><li class="post-list-item"><a class="post-list-link" href="/implement-erofs-fragment-dedupe.html">转：EROFS 碎片去重实践</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-enable-kasan-in-ubuntu-18-04-for-x86_64.html">How to enable KASAN in Ubuntu 18.04 for X86_64</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-analyze-segmentation-fault-for-non-install-package-in-ubuntu.html">如何分析 Linux user space's segmentation fault</a></li><li class="post-list-item"><a class="post-list-link" href="/prepare-fragment-dedupe-in-erofs.html">EROFS 碎片去重准备</a></li><li class="post-list-item"><a class="post-list-link" href="/good-naming-in-programming.html">优秀代码命名法</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-compressed-data-deduplication.html">EROFS 压缩去重分析</a></li><li class="post-list-item"><a class="post-list-link" href="/analyze-fscache-cookie-code.html">转：浅析 Linux FS-Cache</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-let-bluetooth-work-under-armbian-kodi-for-rockpi4b-within-metal-case.html">Rockpi4b Armbian Kodi 终于能使用蓝牙了</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-ztailpacking-explain.html">转：EROFS ztailpacking 特性实现详解</a></li></ul></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/arm/">ARM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/dd/">Device Driver</a><span class="category-list-count">16</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/fs/">File System</a><span class="category-list-count">18</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/iot/">IoT</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/msm/">MSM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/mm/">Memory Management</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/perf/">Performance</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/security/">Security</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/stab/">Stability</a><span class="category-list-count">25</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/tools/">Tools</a><span class="category-list-count">17</span></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2023 <a href="/." rel="nofollow">TJ的技术博客.</a></div></div></div><script type="text/javascript" src="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.js"></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0"></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>

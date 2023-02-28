@@ -1,0 +1,58 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>UFS概览 | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">UFS概览</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">UFS概览</h1><div class="post-meta">2020-04-30</div><div class="post-content"><p>UFS(Universal Flash Storage)的出现就是为了取代eMMC和SD cards，它兼具eMMC优点(low power)和SCSI SSD优点(high performance)，因而是基于SCSI架构的，称它mobile SSD最合适。如果是可移除(removable)的就是UFS card了。</p>
+<h2 id="SCSI-architectural-model"><a href="#SCSI-architectural-model" class="headerlink" title="SCSI architectural model"></a>SCSI architectural model</h2><p>SCSI devices之间关系是一个client-server model：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/1134088607.png" alt="scsi-cs-model.png"></p>
+<p>如上图，client是SCSI Initiator，server是SCSI Target，client负责发起request，server则respond这个请求，他们通过Service Delivery Subsystem连接起来。</p>
+<p>另外，SCSI Target由一到多个LU组成，用LUN来识别:</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/1260790788.png" alt="scsi-cs-with-lun-model.png"></p>
+<p>LU包含Device Server和Task Manager，分别处理client发来的相应request。用well know LU定义只包含特定的功能的LU。</p>
+<p>看下C&#x2F;S通信使用的三层协议模型：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/3622247594.png" alt="scsi-3layer-prot.png"></p>
+<p>Interconnect layer就是C&#x2F;S模型里提到的Service Delivery Subsystem，还提供了一些服务和信号机制供物理层数据传输用, 缩成SIL。</p>
+<p>最后还有个SCSI domain model:</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/3506005009.png" alt="scsi-domain.png"></p>
+<p>可见，SCSI domain由SCSI devices和a servce delivery subsystem组成。</p>
+<h2 id="UFS-architectural-overview"><a href="#UFS-architectural-overview" class="headerlink" title="UFS architectural overview"></a>UFS architectural overview</h2><p>ok，UFS arch是基于SCSI arch的，来看spec里的arch图：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/3970542103.png" alt="ufs-top-lvl-arch.png"></p>
+<p>三层架构，来详细点：</p>
+<ul>
+<li><p>Application Layer: UCS(处理r&#x2F;w等normal cmds) + device manager(device level控制) + task manager(command queue控制)三大块组成。</p>
+</li>
+<li><p>UTP: 提供服务给上层用，UTP架构采用了SCSI的C&#x2F;S model，其中UFS Host是client，UFS device是server。它们之间的交流使用一个叫做UPIU(UFS Protocol Information Unit)的东东。</p>
+</li>
+<li><p>UIC: 处理连接，由MIPI UniPro和MIPI M-PHY组成。UniPro就是Unified Protocol，mobile领域使用的一种高速互连接口。通常都和物理层(如M-PHY)一道完成通讯。</p>
+</li>
+</ul>
+<p>UniPro还有子层：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/137533952.png" alt="unipro-layer-view.png"></p>
+<p>UniPro提供给DME(Device Management Entity)访问。</p>
+<h2 id="UFS-LUs"><a href="#UFS-LUs" class="headerlink" title="UFS LUs"></a>UFS LUs</h2><p>先看下spec的UFS domain图:</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/1392881938.png" alt="ufs-scsi-domain.png"></p>
+<p>这个图很清楚，提下UFS最大支持N个LU，除了well-known LUs。Device server处理cmd，Task set是一组cmds，Task manager控制cmd顺序。</p>
+<p>4个Well-Known LU(W-LU) in UFS:</p>
+<p>SCSI REPORT LUNS + UFS Device + Boot(启动相关) + RPMB(安全有关)</p>
+<p>一般买来的UFS没有LUN，需要create，这个行为叫做provisioning，也叫Logical block provisioning。</p>
+<p>UFS的UPIU有个Query function，定义了Query Request UPIU和Query Response UPIU。Query查询用来在C&#x2F;S间读写数据，这些数据包含了system data，配置，descriptor，flags等。</p>
+<p>这些关于device的descriptors分成好多种，比如有GEOMETRY描述符，里面定义了UFS大小:</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/2868324373.png" alt="ufs-geo-desc-size.png"></p>
+<h2 id="UFSHCI"><a href="#UFSHCI" class="headerlink" title="UFSHCI"></a>UFSHCI</h2><p>来看下Host侧的相关定义，UFSHCI是Host Controller Interface，它的目标就是定义一个统一的访问HW的接口，这样的好处是可以提供一个通用的driver，这个driver可以和不同vendor的HCI一起工作。</p>
+<p>我们看下从HCI角度的UFS架构图：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/2216724356.png" alt="ufs-arch-from-hci.png"></p>
+<p>这个接口位于Host driver和HW之间，由Host controller管理。</p>
+<p>UFSHCI定义了两个接口空间(interface spaces)：MMIO space + Host memory space，看下这个interface架构：</p>
+<p><img src="http://tjtech.me/usr/uploads/2020/05/2623443533.png" alt="ufshci-intf-arch.png"></p>
+<p>MMIO space&#x2F;IO Memory就是各种Registers，结合Host memory中的Transfer Request Descriptors完成和HW通信。</p>
+<h2 id="Linux-kernel-support"><a href="#Linux-kernel-support" class="headerlink" title="Linux kernel support"></a>Linux kernel support</h2><ul>
+<li>Documentation&#x2F;scsi&#x2F;ufs.txt</li>
+<li>Documentation&#x2F;ABI&#x2F;testing&#x2F;sysfs-driver-ufs</li>
+<li>ufs device drv: drivers&#x2F;scsi&#x2F;ufs</li>
+<li>ufs phy drv: drivers&#x2F;phy&#x2F;phy-core.c + drivers&#x2F;phy&#x2F;qualcomm</li>
+</ul>
+<p>Done.</p>
+<p>ps: 以上参考UFS和SCSI相关free spec。</p>
+</div><div class="post-copyright"><script type="text/javascript" src="/js/copyright.js?v=1.0.0" successtext="复制成功！"></script><link rel="stylesheet" type="text/css" href="/css/copyright.css?v=1.0.0"><p><span>版权声明：</span>本站所有文章均采用 <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/cn/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0 CN</a> 许可协议。转载请注明原文链接！</p></div><br><div class="tags"><a href="/tags/ufs"><i class="fa fa-tag">ufs</i></a></div><div class="post-nav"><a class="pre" href="/sdio-card-init.html">SDIO Card初始化分析</a><a class="next" href="/how-to-enter-recovery-menu-under-no-command.html">Android如何在No command下进入recovery</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/kworker-sched-la-stat.html">kworker 调度延迟性能测试和统计</a></li><li class="post-list-item"><a class="post-list-link" href="/implement-erofs-fragment-dedupe.html">转：EROFS 碎片去重实践</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-enable-kasan-in-ubuntu-18-04-for-x86_64.html">How to enable KASAN in Ubuntu 18.04 for X86_64</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-analyze-segmentation-fault-for-non-install-package-in-ubuntu.html">如何分析 Linux user space's segmentation fault</a></li><li class="post-list-item"><a class="post-list-link" href="/prepare-fragment-dedupe-in-erofs.html">EROFS 碎片去重准备</a></li><li class="post-list-item"><a class="post-list-link" href="/good-naming-in-programming.html">优秀代码命名法</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-compressed-data-deduplication.html">EROFS 压缩去重分析</a></li><li class="post-list-item"><a class="post-list-link" href="/analyze-fscache-cookie-code.html">转：浅析 Linux FS-Cache</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-let-bluetooth-work-under-armbian-kodi-for-rockpi4b-within-metal-case.html">Rockpi4b Armbian Kodi 终于能使用蓝牙了</a></li><li class="post-list-item"><a class="post-list-link" href="/erofs-ztailpacking-explain.html">转：EROFS ztailpacking 特性实现详解</a></li></ul></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/arm/">ARM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/dd/">Device Driver</a><span class="category-list-count">16</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/fs/">File System</a><span class="category-list-count">18</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/iot/">IoT</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/msm/">MSM</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/mm/">Memory Management</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/perf/">Performance</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/security/">Security</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/stab/">Stability</a><span class="category-list-count">25</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/tools/">Tools</a><span class="category-list-count">17</span></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2023 <a href="/." rel="nofollow">TJ的技术博客.</a></div></div></div><script type="text/javascript" src="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.js"></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0"></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>
