@@ -68,7 +68,7 @@
 <p>五. 只有把业务想清楚了，才能说得简单准确</p>
 <p>比如 <code>kmap_local()</code> 的出现，linus 的一段答复：</p>
 <blockquote>
-<p>On Sat, Sep 19, 2020 at 2:50 AM Thomas Gleixner <a href="mailto:&#x74;&#x67;&#x6c;&#x78;&#x40;&#108;&#x69;&#x6e;&#117;&#116;&#114;&#111;&#110;&#x69;&#x78;&#46;&#100;&#101;">&#x74;&#x67;&#x6c;&#x78;&#x40;&#108;&#x69;&#x6e;&#117;&#116;&#114;&#111;&#110;&#x69;&#x78;&#46;&#100;&#101;</a> wrote:<br>&gt;<br>&gt; this provides a preemptible variant of kmap_atomic &amp; related<br>&gt; interfaces. This is achieved by:</p>
+<p>On Sat, Sep 19, 2020 at 2:50 AM Thomas Gleixner <a href="mailto:&#116;&#x67;&#108;&#x78;&#64;&#108;&#105;&#110;&#x75;&#x74;&#x72;&#111;&#110;&#x69;&#120;&#46;&#x64;&#x65;">&#116;&#x67;&#108;&#x78;&#64;&#108;&#105;&#110;&#x75;&#x74;&#x72;&#111;&#110;&#x69;&#120;&#46;&#x64;&#x65;</a> wrote:<br>&gt;<br>&gt; this provides a preemptible variant of kmap_atomic &amp; related<br>&gt; interfaces. This is achieved by:</p>
 <p>Ack. This looks really nice, even apart from the new capability.</p>
 <p>The only thing I really reacted to is that the name doesn’t make sense<br>to me: “kmap_temporary()” seems a bit odd.</p>
 <p>Particularly for an interface that really is basically meant as a<br>better replacement of “kmap_atomic()” (but is perhaps also a better<br>replacement for “kmap()”).</p>
