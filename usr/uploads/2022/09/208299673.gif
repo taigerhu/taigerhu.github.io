@@ -1,9 +1,0 @@
-qemu-system-x86_64 \
-  -cpu SandyBridge \
-  -smp 4 \
-  -m 1G \
-  -kernel ../code/erofs/erofs/out_x86_64/arch/x86/boot/bzImage \
-  -nographic \
-  -append "root=/dev/ram0 rw rootfstype=ext4 console=ttyS0 init=/linuxrc" \
-  -initrd ./rootfs/ramdisk.gz \
-  -hda hda.img

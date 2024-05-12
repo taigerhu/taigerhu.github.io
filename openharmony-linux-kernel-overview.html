@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>初识 OpenHarmony Linux Kernel | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">初识 OpenHarmony Linux Kernel</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">初识 OpenHarmony Linux Kernel</h1><div class="post-meta">2023-07-15</div><div class="post-content"><p>先看技术架构：</p>
+<p><img src="https://tjtech.me/usr/uploads/2023/07/2415536131.png" alt="ohos-arch.png"></p>
+<p>既然 OH 是多内核设计，那必然会有个抽象层（KAL）统一接口供上层使用，还多了个 HDF 驱动框架，官方的引入考虑：</p>
+<blockquote>
+<p>How to smoothly adapt device drivers to different kernels on the same hardware and minimize the workloads on driver code porting and maintenance is an important issue to address in the OpenHarmony driver subsystem.</p>
+</blockquote>
+<p>就是同一份 driver code 可以多个系统跑，有点那个 BPF CO-RE (compile once-run everywhere) 的味道。</p>
+<p>此外，针对 Linux，OH 还添加了一些增强内核特性，比如 ESwap (内存融合相关)、任务调度。</p>
+<blockquote>
+<p>OpenHarmony provides the enhanced swap (ESwap), related thread group (RTG), and lightweight CPU isolation features for the Linux kernel</p>
+</blockquote>
+<p>还有一些基本特性，比如 hilog, hievent。</p>
+<blockquote>
+<p>Currently, the basic kernel-mode code of OpenHarmony is related to the log service. The lightweight kernel log service code includes the following:</p>
+</blockquote>
+<p>还有的藏的比较深,比如 accesstokenid：</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">tj@ubuntu:~/ohos-3.2.2/kernel/linux/linux-5.10/drivers/accesstokenid$ <span class="built_in">ls</span></span><br><span class="line">Kconfig  Makefile  access_tokenid.c  access_tokenid.h</span><br></pre></td></tr></table></figure>
+
+<p>干啥用的？Kconfig:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">config ACCESS_TOKENID</span><br><span class="line">        bool &quot;Access task&#x27;s token&quot;</span><br><span class="line">        default n</span><br></pre></td></tr></table></figure>
+
+<p>这描述。。。貌似和 APP 权限有关。</p>
+<p>当前 OH Linux 内核版本只有 4.19 和 5.10：</p>
+<blockquote>
+<p>OpenHarmony uses Linux LTS versions as its base kernel. Currently, it supports Linux-4.19 and Linux-5.10.</p>
+</blockquote>
+<p>既然用 Linux LTS 版本，为啥不用 5.4？I think it might not be related to technology… rt?</p>
+<p>3.2.2 里只有 linux-5.10:</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">tj@ubuntu:~/ohos-3.2.2/kernel/linux$ <span class="built_in">ls</span></span><br><span class="line">build  config  linux-5.10  patches</span><br></pre></td></tr></table></figure>
+
+<p>这种情况，如果 Vendor&#x2F;SoC 不支持 5.10，那三方有的干了。</p>
+<p>我们来看下内核提交日志，好家伙，下面这种 log 对我没有任何用处, I can’t learn anything from this, what about you? </p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">commit b840cb60753e1118e9d0e1eb4d2bfd353ec0e032 (grafted, HEAD, tag: OpenHarmony-v3.2.2-Release, m/refs/tags/OpenHarmony-v3.2.2-Release)</span><br><span class="line">Author: openharmony_ci &lt;120357966@qq.com&gt;</span><br><span class="line">Date:   Fri Jun 9 08:32:06 2023 +0000</span><br><span class="line"></span><br><span class="line">    !896 master 分支CVE同步</span><br><span class="line">    Merge pull request !896 from Ywenrui44091/OpenHarmony-3.2-Release</span><br></pre></td></tr></table></figure>
+
+<p>附带过下代码目录。</p>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">tj@ubuntu:~/ohos-3.2.2$ <span class="built_in">ls</span></span><br><span class="line">applications  base   build.py  commonlibrary  device  drivers     ide        kernel          productdefine  <span class="built_in">test</span>         vendor</span><br><span class="line">arkcompiler   build  build.sh  developtools   docs    foundation  interface  napi_generator  qemu-run       third_party</span><br></pre></td></tr></table></figure>
+
+<p>有个 base 和 foundation 不太明白，其他目录看 name 还好。</p>
+<p>官方解释：</p>
+<blockquote>
+<p>base | Basic software service subsystem set and hardware service subsystem set.|<br>foundation | Basic system capability subsystem set.|</p>
+</blockquote>
+<p>啊，就是架构图画到的。</p>
+<blockquote>
+<p>Basic software service subsystem set: Provides OpenHarmony with common universal software services, including common event and notification, telephony, multimedia, and Design For X (DFX).</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">tj@ubuntu:~/ohos-3.2.2$ <span class="built_in">ls</span> base</span><br><span class="line">account        global     inputmethod  location  notification  request   sensors  telephony  time    usb      web</span><br><span class="line">customization  hiviewdfx  iothardware  msdp      powermgr      security  startup  theme      update  useriam</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Basic system capability subsystem set: Implements distributed application running, scheduling, and migration across OpenHarmony devices. This subsystem set provides the following basic capabilities: Distributed Soft Bus (DSoftBus), distributed data management, Distributed Scheduler, Utils, multimodal input, graphics, security, and AI.</p>
+</blockquote>
+<figure class="highlight bash"><table><tr><td class="code"><pre><span class="line">tj@ubuntu:~/ohos-3.2.2$ <span class="built_in">ls</span> foundation/</span><br><span class="line">ability  arkui        bundlemanager  deviceprofile       distributedhardware  graphic     multimodalinput   systemabilitymgr</span><br><span class="line">ai       barrierfree  communication  distributeddatamgr  filemanagement       multimedia  resourceschedule  window</span><br></pre></td></tr></table></figure>
+
+<p>都能对号入座，就这么多，done。</p>
+<h2 id="References"><a href="#References" class="headerlink" title="References"></a>References</h2><ul>
+<li><p><a target="_blank" rel="noopener" href="https://docs.openharmony.cn/pages/v3.2/en/OpenHarmony-Overview.md/">https://docs.openharmony.cn/pages/v3.2/en/OpenHarmony-Overview.md/</a></p>
+</li>
+<li><p><a target="_blank" rel="noopener" href="https://gitee.com/openharmony/docs/blob/master/en/device-dev/get-code/sourcecode-acquire.md">https://gitee.com/openharmony/docs/blob/master/en/device-dev/get-code/sourcecode-acquire.md</a></p>
+</li>
+</ul>
+</div><div class="post-copyright"><script type="text/javascript" src="/js/copyright.js?v=1.0.0" successtext="复制成功！"></script><link rel="stylesheet" type="text/css" href="/css/copyright.css?v=1.0.0"><p><span>版权声明：</span>本站所有文章均采用 <a href="http://creativecommons.org/licenses/by-nc-sa/4.0/cn/" rel="external nofollow" target="_blank">CC BY-NC-SA 4.0 CN</a> 许可协议。转载请注明原文链接！</p></div><br><div class="tags"></div><div class="post-nav"><a class="pre" href="/porting-openharmony-linux-kernel-to-3rd-party-chip.html">快速移植 OpenHarmony Linux 内核到三方 ARM64 平台</a><a class="next" href="/what-android-gki-brings-to-oems.html">What Android GKI Brings to OEMs</a></div></div></div></div><div class="pure-u-1-4 hidden_mid_and_down"><div id="sidebar"><div class="widget"><div class="search-form"><input id="local-search-input" placeholder="Search" type="text" name="q" results="0"/><div id="local-search-result"></div></div></div><div class="widget"><div class="widget-title">最新文章</div><ul class="post-list"><li class="post-list-item"><a class="post-list-link" href="/review-freezing-issue-when-drag-icon-after-ohos-adaption.html">OpenHarmony适配后图标拖拽卡屏问题回顾</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-fix-parse-too-complex-in-source-insight.html">Source Insight 自定义解析</a></li><li class="post-list-item"><a class="post-list-link" href="/adapt-ohos-for-mali-g57-on-sprd-t606.html">转：拥抱鸿蒙 - 在展讯T606平台上的探索与实践</a></li><li class="post-list-item"><a class="post-list-link" href="/essential-inventory-of-adaption-for-unisoc-platform-androidt-based.html">展讯平台 OpenHarmony 3.2.2 适配基础盘点</a></li><li class="post-list-item"><a class="post-list-link" href="/porting-openharmony-linux-kernel-to-3rd-party-chip.html">快速移植 OpenHarmony Linux 内核到三方 ARM64 平台</a></li><li class="post-list-item"><a class="post-list-link" href="/openharmony-linux-kernel-overview.html">初识 OpenHarmony Linux Kernel</a></li><li class="post-list-item"><a class="post-list-link" href="/what-android-gki-brings-to-oems.html">What Android GKI Brings to OEMs</a></li><li class="post-list-item"><a class="post-list-link" href="/analyze-erofs-pcluster-mode.html">转：EROFS pcluster 模式分析</a></li><li class="post-list-item"><a class="post-list-link" href="/why-cpu-intensive-work-is-meaningless-for-unbound-wq.html">为什么 WQ_CPU_INTENSIVE 对 unbound 工作队列没有意义</a></li><li class="post-list-item"><a class="post-list-link" href="/how-to-support-filter-workqueue-name-in-bpftrace-runqlat.html">如何使 bpftrace:runqlat.bt 按 workqueue name 统计延迟</a></li></ul></div><div class="widget"><div class="widget-title">分类</div><ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/arm/">arm</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/dd/">dd</a><span class="category-list-count">16</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/ebpf/">ebpf</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/fs/">fs</a><span class="category-list-count">19</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/iot/">iot</a><span class="category-list-count">6</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/kernel/">kernel</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/mm/">mm</a><span class="category-list-count">22</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/msm/">msm</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/ohos/">ohos</a><span class="category-list-count">5</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/perf/">perf</a><span class="category-list-count">10</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/security/">security</a><span class="category-list-count">3</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/stab/">stab</a><span class="category-list-count">26</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/tools/">tools</a><span class="category-list-count">18</span></li></ul></div></div></div><div class="pure-u-1 pure-u-md-3-4"><div id="footer">Copyright © 2024 <a href="/." rel="nofollow">TJ的技术博客.</a></div></div></div><script type="text/javascript" src="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.js"></script><script type="text/javascript" src="/js/fancybox.js?v=1.0.0"></script><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/fancybox/latest/jquery.fancybox.min.css"><link rel="stylesheet" type="text/css" href="/css/search.css?v=1.0.0"><script type="text/javascript" src="/js/search.js?v=1.0.0"></script><script>var search_path = 'search.xml';
+if (search_path.length == 0) {
+  search_path = 'search.xml';
+}
+var path = '/' + search_path;
+searchFunc(path, 'local-search-input', 'local-search-result');
+</script><script type="text/javascript" src="/js/codeblock-resizer.js?v=1.0.0"></script><script type="text/javascript" src="/js/smartresize.js?v=1.0.0"></script></div></body></html>
