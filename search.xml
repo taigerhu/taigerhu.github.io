@@ -4,6 +4,31 @@
   
     
     <entry>
+      <title>I am back!</title>
+      <link href="/convert-typecho-to-hexo.html"/>
+      <url>/convert-typecho-to-hexo.html</url>
+      
+        <content type="html"><![CDATA[<p>你没看错，我回来了，哈～</p><p>3月就收到了某云续费通知，好家伙，直接一年500人民币，啥优惠都没有，原来也就200左右的样子。有点入坑的赶脚，不过对我别想。。。不用了，直接静态。</p><p>其实之前就做过功课, typecho可以转hexo，github有脚本直接转，评论啥的不care，刚好Maupassant主题也有，风格基本没变。直接放github了，国内的其他都试过不好使，要不有坑。</p><p>一直没搞是因为最近工作变故，一直在瞎忙，回来后不想搞了，LP也不让：）</p><p>最近PRJ基本收尾了，轻松阿，正好LP不在jia，来搞一把，没啥坑。</p><p>hexo d用ssh方式，https要啥token，没试了。</p><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">114 deploy:</span><br><span class="line">115   type: git</span><br><span class="line">116   repo: git@github.com:yourname/yourname.github.io.git</span><br><span class="line">117   branch: master</span><br></pre></td></tr></table></figure><p>域名解析用CNAME即可，不需要用IP。</p><p>About页面直接hexo new page即可。</p><h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><ul><li><a href="https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/verifying-your-custom-domain-for-github-pages">https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/verifying-your-custom-domain-for-github-pages</a></li><li><a href="https://hexo.io/zh-cn/docs/writing.html">https://hexo.io/zh-cn/docs/writing.html</a></li><li><a href="https://github.com/tufu9441/maupassant-hexo">https://github.com/tufu9441/maupassant-hexo</a></li><li><a href="https://cloud.tencent.com/developer/article/1158747">https://cloud.tencent.com/developer/article/1158747</a></li></ul>]]></content>
+      
+      
+      <categories>
+          
+          <category> tools </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> hexo </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>OpenHarmony适配后图标拖拽卡屏问题回顾</title>
       <link href="/review-freezing-issue-when-drag-icon-after-ohos-adaption.html"/>
       <url>/review-freezing-issue-when-drag-icon-after-ohos-adaption.html</url>
