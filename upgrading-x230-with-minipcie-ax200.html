@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="zh-CN"><head><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" name="viewport"><meta content="yes" name="apple-mobile-web-app-capable"><meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"><meta content="telephone=no" name="format-detection"><meta name="description" content=""><title>ThinkPad X230 升级 AX200 全纪录 | TJ的技术博客</title><link rel="stylesheet" type="text/css" href="/css/style.css?v=1.0.0"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/normalize/latest/normalize.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/pure-min.min.css"><link rel="stylesheet" type="text/css" href="//lib.baomitu.com/pure/latest/grids-responsive-min.min.css"><link rel="stylesheet" href="//lib.baomitu.com/font-awesome/4.7.0/css/font-awesome.min.css"><script type="text/javascript" src="//lib.baomitu.com/jquery/latest/jquery.min.js"></script><link rel="icon" mask="" sizes="any" href="/favicon.ico"><link rel="Shortcut Icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="apple-touch-icon-precomposed" href="/apple-touch-icon.png"><script type="text/javascript" src="//lib.baomitu.com/clipboard.js/latest/clipboard.min.js"></script><script type="text/javascript" src="//lib.baomitu.com/toastr.js/latest/toastr.min.js"></script><link rel="stylesheet" href="//lib.baomitu.com/toastr.js/latest/toastr.min.css"><meta name="generator" content="Hexo 6.3.0"></head><body><div class="body_container"><div id="header"><div class="site-name"><h1 class="hidden">ThinkPad X230 升级 AX200 全纪录</h1><a id="logo" href="/.">TJ的技术博客</a><p class="description"></p></div><div id="nav-menu"><a class="current" href="/."><i class="fa undefined"> 首页</i></a><a href="/archives/"><i class="fa undefined"> 归档</i></a><a href="/about/"><i class="fa undefined"> 关于</i></a></div></div><div class="pure-g" id="layout"><div class="pure-u-1 pure-u-md-3-4"><div class="content_container"><div class="post"><h1 class="post-title">ThinkPad X230 升级 AX200 全纪录</h1><div class="post-meta">2026-03-11</div><div class="post-content"><p>我的 X230 原网卡是 Intel Centrino Wireless-N 2200。平时 SSH 连家里的服务器，虽然能用，但有时会卡，从服务器复制文件速度也只有 3~4MB&#x2F;s。看了一圈，可以上 Wi-Fi 6 网卡。</p>
-<p>不过，X230 有 BIOS <strong>白名单机制</strong>，只允许使用它认证过的无线网卡。想用新网卡（如 Intel AX200&#x2F;AX210），第一步必须是<strong>解除白名单</strong>, 需要用到工具1vyrain。</p>
-<h2 id="第一步：降级-BIOS"><a href="#第一步：降级-BIOS" class="headerlink" title="第一步：降级 BIOS"></a>第一步：降级 BIOS</h2><p>我的 X230 原 BIOS 版本高于 2.60，不能直接破解，必须先降级。这一步需要两个工具：</p>
+<p>不过，X230 有 BIOS <strong>白名单机制</strong>，只允许使用它认证过的无线网卡。想用新网卡（如 Intel AX200&#x2F;AX210），必须<strong>解除白名单</strong>, 需要用到工具1vyrain。</p>
+<h2 id="第一步：解除白名单"><a href="#第一步：解除白名单" class="headerlink" title="第一步：解除白名单"></a>第一步：解除白名单</h2><p>我的 X230 原 BIOS 版本高于 2.60，不能直接破解，必须先降级。这一步需要两个工具：</p>
 <ul>
 <li><strong>IVprep</strong>：用于将 BIOS 降级到 2.60</li>
 <li><strong>1vyrain</strong>：用于刷入修改版 BIOS（解除白名单）</li>
@@ -16,12 +16,12 @@
 <li>下载 <code>1vyrain_20200620.iso</code> 镜像（官网无法访问，我用的是参考资料提供的版本）</li>
 <li>用 Rufus 将镜像写入 U 盘，<strong>写入模式选“DD 模式”</strong></li>
 </ol>
-<h3 id="1-3-进入-BIOS-设置"><a href="#1-3-进入-BIOS-设置" class="headerlink" title="1.3 进入 BIOS 设置"></a>1.3 进入 BIOS 设置</h3><p>开机按 F1 进 BIOS，调整以下设置：</p>
+<h3 id="1-3-进入-BIOS-设置"><a href="#1-3-进入-BIOS-设置" class="headerlink" title="1.3 进入 BIOS 设置"></a>1.3 进入 BIOS 设置</h3><p>开机按 F1 进 BIOS，确保以下设置：</p>
 <ul>
 <li><code>Security</code> → <code>UEFI BIOS Update Option</code> → <code>Flash BIOS Updating by End-User</code> 设为 <code>Enable</code></li>
 <li><code>Secure RollBack Prevention</code> 设为 <code>Disabled</code></li>
 <li><code>Security</code> → <code>Secure Boot</code> 设为 <code>Disable</code></li>
-<li><code>Startup</code> → <code>UEFI/Legacy Boot</code> 设为 <code>UEFI Only</code></li>
+<li><code>Startup</code> → <code>UEFI/Legacy Boot</code> 我这里是 <code>UEFI Only</code></li>
 </ul>
 <p>保存退出。</p>
 <h3 id="1-4-启动到-1vyrain-并刷机"><a href="#1-4-启动到-1vyrain-并刷机" class="headerlink" title="1.4 启动到 1vyrain 并刷机"></a>1.4 启动到 1vyrain 并刷机</h3><ol>
@@ -36,10 +36,10 @@
 <p><img src="/images/2026/03/mini-pcie-card-old.png" alt="原装网卡 Intel N2200"></p>
 <h3 id="3-2-拆卸原网卡"><a href="#3-2-拆卸原网卡" class="headerlink" title="3.2 拆卸原网卡"></a>3.2 拆卸原网卡</h3><p>小心拔下两根天线，卸下固定螺丝，网卡会自动翘起，取出即可。</p>
 <h3 id="3-3-安装新网卡（MPE-AX3000H）"><a href="#3-3-安装新网卡（MPE-AX3000H）" class="headerlink" title="3.3 安装新网卡（MPE-AX3000H）"></a>3.3 安装新网卡（MPE-AX3000H）</h3><p>对准卡槽插入新卡，拧上螺丝，对准座子小心插入天线，确保扣紧。</p>
-<h2 id="第四步：驱动安装与调试（Win10-Ubuntu-20）"><a href="#第四步：驱动安装与调试（Win10-Ubuntu-20）" class="headerlink" title="第四步：驱动安装与调试（Win10 + Ubuntu 20）"></a>第四步：驱动安装与调试（Win10 + Ubuntu 20）</h2><h3 id="4-1-Windows-10-下的情况"><a href="#4-1-Windows-10-下的情况" class="headerlink" title="4.1 Windows 10 下的情况"></a>4.1 Windows 10 下的情况</h3><p>装好网卡后开机，安装之前下载的驱动包。</p>
+<h2 id="第四步：安装驱动（Win10-Ubuntu-20）"><a href="#第四步：安装驱动（Win10-Ubuntu-20）" class="headerlink" title="第四步：安装驱动（Win10 + Ubuntu 20）"></a>第四步：安装驱动（Win10 + Ubuntu 20）</h2><h3 id="4-1-Windows-10-下的情况"><a href="#4-1-Windows-10-下的情况" class="headerlink" title="4.1 Windows 10 下的情况"></a>4.1 Windows 10 下的情况</h3><p>装好网卡后开机，安装之前下载的驱动包。</p>
 <h4 id="Wi-Fi：一次成功"><a href="#Wi-Fi：一次成功" class="headerlink" title="Wi-Fi：一次成功"></a>Wi-Fi：一次成功</h4><p>网络适配器中直接识别出 <strong>Intel(R) Wi-Fi 6 AX200 160MHz</strong>，连接 5G Wi-Fi 正常。</p>
 <p><img src="/images/2026/03/dev-ax200.jpg" alt="Wi-Fi 识别成功"></p>
-<h4 id="蓝牙：一波三折"><a href="#蓝牙：一波三折" class="headerlink" title="蓝牙：一波三折"></a>蓝牙：一波三折</h4><p>设备管理器里出现了 **英特尔(R) 无线 Bluetooth(R)**，但带黄色感叹号。蓝牙工作不正常，进控制面板看到驱动列表里有个 <strong>“Broadcom Corporation (bctbums) Bluetooth”</strong> 驱动，不太对，卸载后再装。</p>
+<h4 id="蓝牙：一波三折"><a href="#蓝牙：一波三折" class="headerlink" title="蓝牙：一波三折"></a>蓝牙：一波三折</h4><p>设备管理器里出现了 <strong>英特尔(R) 无线 Bluetooth</strong>，但带黄色感叹号。蓝牙工作不正常，进控制面板看到驱动列表里有个 <strong>“Broadcom Corporation (bctbums) Bluetooth”</strong> 驱动，不太对，卸载后再装。</p>
 <p><img src="/images/2026/03/drv-bcm-bt.png" alt="冲突的博通驱动"></p>
 <p>黄色感叹号还在（Windows 没认出设备名称），但试了下我的漫步者蓝牙耳机可以配对、听歌。</p>
 <p><img src="/images/2026/03/dev-bt.jpg" alt="蓝牙设备列表"></p>
